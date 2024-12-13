@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Árvore de Itens com Busca</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h2 {
+            color: #333;
+        }
+
+        input[type="text"], input[type="file"] {
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: calc(100% - 22px);
+        }
+
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        ul {
+            list-style-type: none;
+            padding-left: 20px;
+            margin: 20px 0;
+        }
+
+        li {
+            cursor: pointer;
+            margin: 5px 0;
+            padding: 5px;
+            background-color: #fff;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+
+        li:hover {
+            background-color: #e0e0e0;
+        }
+
+        /* Estilo do modal */
+          .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            right: 20px;
+            top: 150px;
+            width: 400px;
+            background-color: #fff;
+            border: 1px solid #888;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<h2>Árvore de Itens com Busca</h2>
+
+<input type="file" id="fileInput" accept=".json" />
+<button onclick="loadJSON()">Carregar JSON</button>
+<input type="text" id="searchInput" placeholder="Buscar..." oninput="searchItems()" />
+
+<select id="options" onchange="openModalFromDropdown()">
+    <option value="">Selecione...</option>
+</select>
+
+<ul id="tree"></ul>
+
+<!-- Modal -->
+<div id="myModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h3 id="modalTitle"></h3>
+        <p id="modalDescription"></p>
+        <button id="openUrlButton" class="open-url" onclick="">Abrir URL</button>
+    </div>
+</div>
+
+<script>
+    let data = {};
+    let popupWindow = null; // Variável para armazenar a janela pop-up
+
+    function loadJSON() {
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                data = JSON.parse(e.target.result);
+                populateDropdownAndTree();
+            };
+            reader.readAsText(file);
+        }
+    }
+
+    function populateDropdownAndTree() {
+        const optionsSelect = document.getElementById('options');
+        const tree = document.getElementById('tree');
+        optionsSelect.innerHTML = '<option value="">Selecione...</option>';
+        tree.innerHTML = '';
+
+        const categories = {};
+        for (const key in data) {
+            const category = data[key].category;
+            if (!categories[category]) {
+                categories[category] = [];
+            }
+            categories[category].push({ key, ...data[key] });
+        }
+
+        for (const category in categories) {
+            const categoryItem = document.createElement('li');
+            categoryItem.textContent = category;
+            const subList = document.createElement('ul');
+
+            categories[category].forEach(item => {
+                const itemElement = document.createElement('li');
+                itemElement.textContent = item.title;
+                itemElement.onclick = (event) => {
+                    event.stopPropagation(); // Evita que o clique no item feche o dropdown
+                    openModal(item.key); // Abre o modal ao clicar
+                };
+
+                const option = document.createElement('option');
+                option.value = item.key;
+                option.textContent = item.title;
+                optionsSelect.appendChild(option);
+
+                subList.appendChild(itemElement);
+            });
+
+            categoryItem.appendChild(subList);
+            tree.appendChild(categoryItem);
+        }
+    }
+
+    function openModal(selectedValue) {
+        const item = data[selectedValue];
+        document.getElementById('modalTitle').textContent = item.title;
+        document.getElementById('modalDescription').textContent = item.description;
+        document.getElementById('openUrlButton').onclick = () => openPopup(item.url);
+        
+        const modal = document.getElementById("myModal");
+        modal.style.display = "block";
+    }
+
+    function openModalFromDropdown() {
+        const select = document.getElementById('options');
+        const selectedValue = select.value;
+        if (selectedValue) {
+            openModal(selectedValue);
+        }
+    }
+
+    function closeModal() {
+        const modal = document.getElementById("myModal");
+        modal.style.display = "none";
+    }
+
+    function openPopup(url) {
+        // Verifica se a janela pop-up já está aberta
+        if (popupWindow && !popupWindow.closed) {
+            popupWindow.focus(); // Foca na janela se já estiver aberta
+        } else {
+            // Definindo as dimensões da nova janela
+            const width = 360;
+            const height = 700;
+
+            // Calculando a posição da nova janela
+            const left = window.innerWidth - width - 120; // 120px de margem da direita
+            const top = (window.innerHeight / 2) - (height / 2); // Centraliza verticalmente
+
+            // Abre a nova janela
+            popupWindow = window.open(url, "popupWindow", `width=${width},height=${height},left=${left},top=${top}`);
+        }
+    }
+
+    function searchItems() {
+        const input = document.getElementById('searchInput').value.toLowerCase();
+        const tree = document.getElementById('tree');
+        const items = tree.getElementsByTagName('li');
+
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            if (item.textContent.toLowerCase().includes(input)) {
+                item.style.display = ""; // Exibe o item
+            } else {
+                item.style.display = "none"; // Oculta o item
+            }
+        }
+    }
+
+    // Fecha o modal se o usuário clicar fora do conteúdo do modal
+    window.onclick = function(event) {
+        const modal = document.getElementById("myModal");
+        if (event.target === modal) {
+            closeModal();
+        }
+    }
+</script>
+
+</body>
+</html>
